@@ -1,13 +1,5 @@
 <div align="center">
 
-  <pre>
-  __                          __
- / /   _____  ____  ____  ___/ /__  _____
-/ / | / / _ \/ __ \/ __ \/ _  / _ \/ ___/
-/ /___/ /  __/ / / / / / /  __/  __/ /
-\____/_/\___/_/ /_/_/ /_/\__,_/\___/_/
-  </pre>
-
   **A calm, local-first Markdown knowledge workspace for your desktop**
 
   Notes are plain `.md` files on your disk — no database, no lock-in, no cloud.
