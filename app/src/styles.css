@@ -1,0 +1,356 @@
+@import "katex/dist/katex.min.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/source-serif-4";
+@import "tailwindcss";
+
+/* Tailwind v4: enable dark: variant driven by [data-theme="dark"] */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ------------------------------------------------------------------ */
+/* Locus design tokens — dark glass/matte palette                      */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-locus-bg: #111315;
+  --color-locus-sidebar: #17191c;
+  --color-locus-surface: #1e2126;
+  --color-locus-surface-hover: #262a31;
+  --color-locus-ink: #f5f5f5;
+  --color-locus-ink-secondary: #c7cdd6;
+  --color-locus-ink-muted: #8b949e;
+  --color-locus-accent: #6ea8fe;
+  --color-locus-accent-soft: rgba(110, 168, 254, 0.16);
+  --color-locus-success: #53d769;
+  --color-locus-warning: #f5b342;
+  --color-locus-danger: #ff5c5c;
+  --color-locus-border: #2a2e36;
+  --color-locus-border-soft: rgba(255, 255, 255, 0.07);
+
+  --font-locus-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  --font-locus-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia,
+    serif;
+  --font-locus-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace,
+    "SFMono-Regular", Menlo, monospace;
+
+  --radius-locus-sm: 8px;
+  --radius-locus-md: 12px;
+  --radius-locus-lg: 14px;
+  --radius-locus-xl: 18px;
+  --radius-locus-full: 9999px;
+
+  --shadow-locus-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.32);
+  --shadow-locus-pop: 0 4px 16px rgba(0, 0, 0, 0.45), 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --color-locus-bg: #f7f8fa;
+  --color-locus-sidebar: #f0f1f4;
+  --color-locus-surface: #ffffff;
+  --color-locus-surface-hover: #eef0f4;
+  --color-locus-ink: #1a1d23;
+  --color-locus-ink-secondary: #3d4450;
+  --color-locus-ink-muted: #6b7280;
+  --color-locus-accent: #3b82f6;
+  --color-locus-accent-soft: rgba(59, 130, 246, 0.14);
+  --color-locus-success: #22a75d;
+  --color-locus-warning: #d97706;
+  --color-locus-danger: #e5484d;
+  --color-locus-border: #e3e6eb;
+  --color-locus-border-soft: rgba(0, 0, 0, 0.06);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-locus-sans);
+  background: var(--color-locus-bg);
+  color: var(--color-locus-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  user-select: none;
+}
+
+input,
+textarea,
+.cm-editor,
+.locus-prose {
+  user-select: text;
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion                                                                */
+/* ------------------------------------------------------------------ */
+@keyframes locus-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes locus-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes locus-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.locus-anim-fade {
+  animation: locus-fade 160ms ease-out both;
+}
+.locus-anim-pop {
+  animation: locus-pop 180ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.locus-anim-rise {
+  animation: locus-rise 200ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* ------------------------------------------------------------------ */
+/* Rendered Markdown                                                     */
+/* ------------------------------------------------------------------ */
+.locus-prose {
+  font-family: var(--font-locus-sans);
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--color-locus-ink);
+  letter-spacing: -0.006em;
+}
+.locus-prose.reading {
+  font-family: var(--font-locus-serif);
+  font-size: 18px;
+  line-height: 1.75;
+}
+.locus-prose h1,
+.locus-prose h2,
+.locus-prose h3,
+.locus-prose h4 {
+  font-family: var(--font-locus-sans);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 1.5em 0 0.45em;
+}
+.locus-prose h1 {
+  font-size: 34px;
+}
+.locus-prose h2 {
+  font-size: 26px;
+}
+.locus-prose h3 {
+  font-size: 21px;
+}
+.locus-prose h4 {
+  font-size: 17px;
+}
+.locus-prose p {
+  margin: 0.55em 0;
+}
+.locus-prose ul,
+.locus-prose ol {
+  margin: 0.55em 0;
+  padding-left: 1.6em;
+}
+.locus-prose li {
+  margin: 0.22em 0;
+}
+.locus-prose code {
+  font-family: var(--font-locus-mono);
+  font-size: 0.82em;
+  background: var(--color-locus-border-soft);
+  border: 1px solid var(--color-locus-border);
+  border-radius: 6px;
+  padding: 0.08em 0.35em;
+}
+.locus-prose pre {
+  background: var(--color-locus-sidebar);
+  border: 1px solid var(--color-locus-border);
+  border-radius: var(--radius-locus-md);
+  padding: 1em 1.1em;
+  overflow-x: auto;
+  margin: 0.8em 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.locus-prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85em;
+}
+.locus-prose blockquote {
+  margin: 0.8em 0;
+  padding: 0.15em 1.1em;
+  border-left: 3px solid var(--color-locus-accent);
+  background: var(--color-locus-accent-soft);
+  border-radius: 0 var(--radius-locus-sm) var(--radius-locus-sm) 0;
+  color: var(--color-locus-ink-secondary);
+}
+.locus-prose table {
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0.9em 0;
+  width: 100%;
+  border: 1px solid var(--color-locus-border);
+  border-radius: var(--radius-locus-md);
+  overflow: hidden;
+}
+.locus-prose th,
+.locus-prose td {
+  border-bottom: 1px solid var(--color-locus-border);
+  padding: 0.5em 0.9em;
+}
+.locus-prose tr:last-child td {
+  border-bottom: none;
+}
+.locus-prose th {
+  background: var(--color-locus-sidebar);
+  font-weight: 600;
+  text-align: left;
+}
+.locus-prose a {
+  color: var(--color-locus-accent);
+  text-decoration: none;
+}
+.locus-prose a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.locus-prose hr {
+  border: none;
+  border-top: 1px solid var(--color-locus-border);
+  margin: 1.6em 0;
+}
+.locus-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-locus-md);
+  box-shadow: var(--shadow-locus-card);
+}
+.locus-prose .task-list-item {
+  list-style: none;
+  margin-left: -1.4em;
+}
+.locus-prose input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--color-locus-accent);
+  width: 15px;
+  height: 15px;
+}
+
+/* Callouts */
+.locus-callout {
+  border: 1px solid var(--color-locus-border);
+  border-left-width: 3px;
+  border-radius: var(--radius-locus-md);
+  padding: 0.7em 1em;
+  margin: 0.8em 0;
+  background: var(--color-locus-surface);
+}
+.locus-callout-title {
+  font-weight: 600;
+  margin-bottom: 0.3em;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.locus-callout-note {
+  border-left-color: var(--color-locus-accent);
+}
+.locus-callout-warning {
+  border-left-color: var(--color-locus-warning);
+}
+.locus-callout-danger {
+  border-left-color: var(--color-locus-danger);
+}
+.locus-callout-success {
+  border-left-color: var(--color-locus-success);
+}
+
+/* Mermaid */
+.locus-mermaid {
+  background: var(--color-locus-surface);
+  border: 1px solid var(--color-locus-border);
+  border-radius: var(--radius-locus-md);
+  padding: 1em;
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+.locus-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+.locus-mermaid-error {
+  color: var(--color-locus-danger);
+  font-family: var(--font-locus-mono);
+  font-size: 0.85em;
+  white-space: pre-wrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* CodeMirror — infinite writing canvas                                 */
+/* ------------------------------------------------------------------ */
+.cm-editor {
+  height: 100%;
+  font-family: var(--font-locus-mono);
+  font-size: 14px;
+}
+.cm-editor .cm-scroller {
+  line-height: 1.7;
+}
+.cm-editor.cm-focused {
+  outline: none;
+}
+.cm-editor .cm-content {
+  padding: 44px max(3rem, 10vw) 55vh;
+  caret-color: var(--color-locus-accent);
+}
+.cm-editor .cm-gutters {
+  border-right: none;
+  background: transparent;
+}
+.cm-editor .cm-cursor {
+  border-left-color: var(--color-locus-accent);
+}
+.cm-editor .cm-selectionBackground,
+.cm-editor.cm-focused .cm-selectionBackground,
+.cm-editor .cm-selectionLayer .cm-selectionBackground {
+  background: var(--color-locus-accent-soft) !important;
+}
+
+/* Thin scrollbars */
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-locus-border);
+  border-radius: var(--radius-locus-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-locus-ink-muted);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
