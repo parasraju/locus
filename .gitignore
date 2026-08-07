@@ -7,3 +7,6 @@ Thumbs.db
 .vscode/
 .idea/
 .vite-port.json
+app/release/
+app/build/
+app/icon.png
