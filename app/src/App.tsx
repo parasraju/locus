@@ -21,7 +21,7 @@ interface Toast {
   kind: "info" | "error";
 }
 
-const MODE_ORDER: EditorMode[] = ["source", "split", "reading"];
+const MODE_ORDER: EditorMode[] = ["source", "reading"];
 
 function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -232,15 +232,15 @@ export default function App() {
       title: folder ? `New note in ${folder}` : "New note",
       placeholder: "Note name",
       initial: "Untitled",
-      onSubmit: (name) => {
+      onSubmit: async (name) => {
         const rel = folder ? `${folder}/${name}.md` : `${name}.md`;
-        api()
-          .fs.createNote(rel, `# ${name}\n\n`)
-          .then(async () => {
-            await refreshFiles();
-            await openNote(rel);
-          })
-          .catch((e) => toast(String((e as Error).message ?? e), "error"));
+        try {
+          await api().fs.createNote(rel, `# ${name}\n\n`);
+        } catch {
+          // File already exists — just open it
+        }
+        await refreshFiles();
+        await openNote(rel);
       },
     });
   }
@@ -268,11 +268,11 @@ export default function App() {
     const rel = `${name}.md`;
     try {
       await api().fs.createNote(rel, `# ${name}\n\n`);
-      await refreshFiles();
-      await openNote(rel);
-    } catch (e) {
-      toast(String((e as Error).message ?? e), "error");
+    } catch {
+      // File already exists — just open it
     }
+    await refreshFiles();
+    await openNote(rel);
   }
 
   async function renameFile(oldRel: string, newRel: string) {
@@ -481,22 +481,6 @@ export default function App() {
               onMouseMove={() => setToolbarTyping(false)}
               onKeyDown={() => setToolbarTyping(true)}
             >
-              {activeRel && (
-                <Toolbar
-                  visible={toolbarVisible}
-                  onFormat={handleFormat}
-                  onSearch={() => {
-                    setPaletteMode("files");
-                    setPaletteOpen(true);
-                  }}
-                  onAssistant={() => setAssistantOpen((s) => !s)}
-                  onPalette={() => {
-                    setPaletteMode("commands");
-                    setPaletteOpen(true);
-                  }}
-                />
-              )}
-
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-locus-border px-2 pt-1.5 scrollbar-hidden">
                 {tabs.map((t) => (
@@ -524,6 +508,22 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
+              {activeRel && (
+                <Toolbar
+                  visible={toolbarVisible}
+                  onFormat={handleFormat}
+                  onSearch={() => {
+                    setPaletteMode("files");
+                    setPaletteOpen(true);
+                  }}
+                  onAssistant={() => setAssistantOpen((s) => !s)}
+                  onPalette={() => {
+                    setPaletteMode("commands");
+                    setPaletteOpen(true);
+                  }}
+                />
+              )}
 
               <div className="min-h-0 flex-1">
                 {activeRel && (

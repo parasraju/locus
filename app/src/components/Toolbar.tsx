@@ -68,13 +68,13 @@ export function Toolbar({
 }) {
   return (
     <div
-      className={`absolute left-1/2 top-4 z-30 -translate-x-1/2 transition-all duration-200 ${
+      className={`relative z-30 flex justify-center transition-all duration-200 ${
         visible
           ? "translate-y-0 opacity-100"
-          : "pointer-events-none -translate-y-2 opacity-0"
+          : "pointer-events-none -translate-y-2 opacity-0 h-0 overflow-hidden"
       }`}
     >
-      <div className="flex items-center gap-0.5 rounded-locus-lg border border-locus-border bg-locus-surface/90 px-1.5 py-1 shadow-locus-card backdrop-blur-md">
+      <div className="flex items-center gap-0.5 rounded-locus-lg border border-locus-border bg-locus-surface/90 px-1.5 py-1 shadow-locus-card backdrop-blur-md mb-1">
         <ToolButton label="Search (Ctrl+P)" onClick={onSearch}>
           <Search size={15} />
         </ToolButton>

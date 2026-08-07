@@ -3,7 +3,6 @@ import type { Ref } from "react";
 import {
   EditorView,
   keymap,
-  lineNumbers,
   drawSelection,
   dropCursor,
 } from "@codemirror/view";
@@ -31,6 +30,7 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import type { FlatEntry, EditorMode } from "../types";
 import { MarkdownView } from "../lib/markdown";
 import { runFormat, type ToolbarFormat } from "../lib/formatActions";
+import { renderedEditorPlugin } from "../lib/renderedEditor";
 
 export interface EditorPaneHandle {
   scrollToOffset: (offset: number) => void;
@@ -86,7 +86,6 @@ export function EditorPane(props: EditorPaneProps) {
       ? [oneDark, EditorView.theme({ "&": { backgroundColor: "transparent" } })]
       : [syntaxHighlighting(defaultHighlightStyle)];
     return [
-      lineNumbers(),
       history(),
       drawSelection(),
       dropCursor(),
@@ -96,6 +95,7 @@ export function EditorPane(props: EditorPaneProps) {
       closeBrackets(),
       highlightSelectionMatches(),
       markdown(),
+      renderedEditorPlugin,
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,
@@ -214,15 +214,17 @@ export function EditorPane(props: EditorPaneProps) {
           ref={hostRef}
           className={`h-full overflow-hidden ${
             props.mode === "split"
-              ? "w-1/2 border-r border-locus-border"
+              ? "w-1/2 border-r border-locus-border/50 locus-split-mode"
               : "w-full"
           }`}
         />
       )}
       {isPreviewShown && (
         <div
-          className={`h-full overflow-y-auto px-10 py-10 ${
-            props.mode === "split" ? "w-1/2 border-l border-locus-border" : "w-full"
+          className={`h-full overflow-y-auto ${
+            props.mode === "split"
+              ? "w-1/2 bg-locus-bg/50 px-10 py-10"
+              : "w-full px-10 py-10"
           }`}
         >
           <div className="mx-auto max-w-[46rem]">

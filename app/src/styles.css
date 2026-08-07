@@ -307,34 +307,101 @@ textarea,
 }
 
 /* ------------------------------------------------------------------ */
-/* CodeMirror — infinite writing canvas                                 */
+/* CodeMirror — rendered-preview writing canvas                         */
 /* ------------------------------------------------------------------ */
 .cm-editor {
   height: 100%;
-  font-family: var(--font-locus-mono);
-  font-size: 14px;
+  font-family: var(--font-locus-serif);
+  font-size: 18px;
+  line-height: 1.75;
+  color: var(--color-locus-ink);
 }
 .cm-editor .cm-scroller {
-  line-height: 1.7;
+  line-height: 1.75;
+  font-family: var(--font-locus-serif);
 }
 .cm-editor.cm-focused {
   outline: none;
 }
 .cm-editor .cm-content {
-  padding: 44px max(3rem, 10vw) 55vh;
+  padding: 48px max(4rem, 12vw) 55vh;
   caret-color: var(--color-locus-accent);
+  font-family: var(--font-locus-serif);
+  font-size: 18px;
+  line-height: 1.75;
 }
 .cm-editor .cm-gutters {
-  border-right: none;
+  display: none;
+  border: none;
   background: transparent;
 }
 .cm-editor .cm-cursor {
   border-left-color: var(--color-locus-accent);
+  border-left-width: 2px;
 }
 .cm-editor .cm-selectionBackground,
 .cm-editor.cm-focused .cm-selectionBackground,
 .cm-editor .cm-selectionLayer .cm-selectionBackground {
   background: var(--color-locus-accent-soft) !important;
+}
+.cm-editor .cm-line {
+  padding: 0 2px;
+}
+.cm-editor .cm-paragraph {
+  margin-bottom: 0.55em;
+}
+.cm-editor .cm-heading-1,
+.cm-editor .cm-heading-2,
+.cm-editor .cm-heading-3,
+.cm-editor .cm-heading-4 {
+  font-family: var(--font-locus-sans);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.cm-editor .cm-heading-1 { font-size: 34px; margin-top: 1.5em; margin-bottom: 0.45em; }
+.cm-editor .cm-heading-2 { font-size: 26px; margin-top: 1.2em; margin-bottom: 0.4em; }
+.cm-editor .cm-heading-3 { font-size: 21px; margin-top: 1em; margin-bottom: 0.35em; }
+.cm-editor .cm-heading-4 { font-size: 17px; margin-top: 0.8em; margin-bottom: 0.3em; }
+.cm-editor .cm-strong { font-weight: 700; }
+.cm-editor .cm-emphasis { font-style: italic; }
+.cm-editor .cm-code,
+.cm-editor .cm-monospace {
+  font-family: var(--font-locus-mono);
+  font-size: 0.82em;
+  background: var(--color-locus-border-soft);
+  border: 1px solid var(--color-locus-border);
+  border-radius: 6px;
+  padding: 0.08em 0.35em;
+}
+.cm-editor .cm-url,
+.cm-editor .cm-link {
+  color: var(--color-locus-accent);
+}
+.cm-editor .cm-meta,
+.cm-editor .cm-processingInstruction {
+  color: var(--color-locus-ink-muted);
+  opacity: 0.6;
+}
+.cm-editor .cm-strikethrough {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.cm-editor .cm-quote {
+  color: var(--color-locus-ink-secondary);
+  border-left: 3px solid var(--color-locus-accent);
+  padding-left: 0.8em;
+  margin-left: 0;
+}
+.cm-editor .cm-keyword {
+  color: var(--color-locus-ink-muted);
+}
+/* Hide gutters always — this is a writing canvas, not an IDE */
+.cm-editor .cm-gutters {
+  display: none;
+}
+.cm-editor .cm-content:focus .cm-line {
+  /* Subtle focus line highlight */
 }
 
 /* Thin scrollbars */
