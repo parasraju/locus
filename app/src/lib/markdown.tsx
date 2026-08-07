@@ -36,7 +36,16 @@ function MermaidBlock({ code }: { code: string }) {
         });
         const id = `mm-${Math.random().toString(36).slice(2, 10)}`;
         const { svg } = await mermaid.render(id, code);
-        if (!cancelled && ref.current) ref.current.innerHTML = svg;
+        if (!cancelled && ref.current) {
+          const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+          const errNode = doc.querySelector("parsererror");
+          if (errNode) {
+            setError("Invalid SVG from Mermaid");
+          } else {
+            ref.current.innerHTML = "";
+            ref.current.appendChild(doc.documentElement);
+          }
+        }
       } catch (e) {
         if (!cancelled) setError(String((e as Error).message ?? e));
       }

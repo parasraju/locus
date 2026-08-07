@@ -19,7 +19,7 @@ interface LocusApi {
     write: (relPath: string, content: string) => Promise<boolean>;
     createNote: (relPath: string, content: string) => Promise<boolean>;
     createFolder: (relPath: string) => Promise<boolean>;
-    rename: (oldRel: string, newRel: string) => Promise<boolean>;
+    rename: (oldRel: string, newRel: string) => Promise<{ rewritten: number }>;
     trash: (relPath: string) => Promise<boolean>;
     reveal: (relPath: string) => Promise<boolean>;
   };

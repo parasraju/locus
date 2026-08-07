@@ -168,15 +168,23 @@ export default function App() {
     scheduleSave(activeRel, next);
   }
 
+  const contentRef = useRef(content);
+  contentRef.current = content;
+  const activeRelRef = useRef(activeRel);
+  activeRelRef.current = activeRel;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
   function requestSave() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (activeRel && dirty) {
+    const rel = activeRelRef.current;
+    if (rel && dirtyRef.current) {
       api()
-        .fs.write(activeRel, content)
+        .fs.write(rel, contentRef.current)
         .then((ok) => {
           if (ok) {
             setDirty(false);
-            setTabs((prev) => prev.map((t) => (t.relPath === activeRel ? { ...t, dirty: false } : t)));
+            setTabs((prev) => prev.map((t) => (t.relPath === rel ? { ...t, dirty: false } : t)));
           }
         })
         .catch(() => toast("Save failed — changes kept in memory", "error"));
@@ -213,9 +221,9 @@ export default function App() {
   }
 
   function toggleTheme() {
-    const next: Theme = dark ? "light" : "dark";
+    const next: Theme = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
     setTheme(next);
-    api().settings.set("theme", next);
+    if (hasApi) api().settings.set("theme", next);
   }
 
   async function newNote(folder = "") {
@@ -269,11 +277,15 @@ export default function App() {
 
   async function renameFile(oldRel: string, newRel: string) {
     try {
-      await api().fs.rename(oldRel, newRel);
+      const { rewritten } = await api().fs.rename(oldRel, newRel);
       await refreshFiles();
       setTabs((prev) => prev.map((t) => (t.relPath === oldRel ? { ...t, relPath: newRel, name: newRel.split("/").pop() ?? newRel } : t)));
       if (activeRel === oldRel) setActiveRel(newRel);
-      toast("Renamed");
+      if (rewritten > 0) {
+        toast(`Renamed and updated ${rewritten} link${rewritten > 1 ? "s" : ""}`);
+      } else {
+        toast("Renamed");
+      }
     } catch (e) {
       toast(String((e as Error).message ?? e), "error");
     }
@@ -283,8 +295,11 @@ export default function App() {
     if (!window.confirm(`Move "${relPath}" to trash?`)) return;
     try {
       await api().fs.trash(relPath);
-      setFavorites((f) => f.filter((x) => x !== relPath));
-      api().settings.set("favorites", favorites.filter((x) => x !== relPath));
+      setFavorites((prev) => {
+        const next = prev.filter((x) => x !== relPath);
+        api().settings.set("favorites", next);
+        return next;
+      });
       await refreshFiles();
       closeTab(relPath);
       toast("Moved to trash");
@@ -362,7 +377,7 @@ export default function App() {
       { id: "close-vault", title: "Close vault", category: "Vault", run: () => api().vault.close().then(() => setVault(null)) },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [vault, tabs, activeRel, content],
+    [vault, tabs, activeRel],
   );
 
   // ---- global keyboard (PRD §11) ----
@@ -482,7 +497,8 @@ export default function App() {
                 />
               )}
 
-              <div className="flex items-center gap-1 border-b border-locus-border px-2 pt-1.5">
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-locus-border px-2 pt-1.5 scrollbar-hidden">
                 {tabs.map((t) => (
                   <div
                     key={t.relPath}
@@ -535,6 +551,7 @@ export default function App() {
                     }}
                   />
                 )}
+              </div>
               </div>
             </main>
 

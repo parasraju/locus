@@ -40,30 +40,54 @@ const MAX_SEARCH_RESULTS = 200;
 const CONTENT_CACHE_LIMIT = 500;
 
 // ---------------------------------------------------------------------------
-// Settings store (app user-data)
+// Input validation helpers
+// ---------------------------------------------------------------------------
+function assertString(val, name) {
+  if (typeof val !== "string") throw new Error(`${name} must be a string`);
+  return val;
+}
+
+function assertRelPath(val) {
+  const s = assertString(val, "relPath");
+  if (!s) throw new Error("relPath cannot be empty");
+  if (s.includes("\0") || s.includes("..")) throw new Error("Invalid path");
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// Settings store (app user-data) — async reads, sync writes
 // ---------------------------------------------------------------------------
 function settingsPath() {
   return path.join(app.getPath("userData"), "locus-settings.json");
 }
 
-function readSettings() {
+let settingsCache = null;
+let settingsLoaded = false;
+
+async function readSettings() {
+  if (settingsLoaded && settingsCache) return settingsCache;
   try {
-    const raw = fs.readFileSync(settingsPath(), "utf8");
-    return JSON.parse(raw);
+    const raw = await fsp.readFile(settingsPath(), "utf8");
+    settingsCache = JSON.parse(raw);
+    settingsLoaded = true;
   } catch {
-    return {};
+    settingsCache = {};
+    settingsLoaded = true;
   }
+  return settingsCache;
 }
 
 function writeSettings(patch) {
-  const next = { ...readSettings(), ...patch };
+  const next = { ...settingsCache, ...patch };
+  settingsCache = next;
+  settingsLoaded = true;
   fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
   fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2), "utf8");
   return next;
 }
 
-function getSetting(key, fallback) {
-  const s = readSettings();
+async function getSetting(key, fallback) {
+  const s = await readSettings();
   return s[key] === undefined ? fallback : s[key];
 }
 
@@ -74,6 +98,7 @@ let activeVault = null;
 let watcher = null;
 let cachedEntries = [];
 let contentCache = new Map();
+let contentCacheOrder = [];
 
 function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -144,6 +169,7 @@ async function refreshIndex() {
   if (!activeVault) return;
   cachedEntries = await walkVault(activeVault);
   contentCache = new Map();
+  contentCacheOrder = [];
 }
 
 function titleOf(content, name) {
@@ -157,17 +183,35 @@ function titleOf(content, name) {
   return name.replace(/\.md$/i, "");
 }
 
+// LRU content cache helpers
+function cacheGet(relPath) {
+  const entry = contentCache.get(relPath);
+  if (!entry) return null;
+  const idx = contentCacheOrder.indexOf(relPath);
+  if (idx >= 0) contentCacheOrder.splice(idx, 1);
+  contentCacheOrder.push(relPath);
+  return entry;
+}
+
+function cacheSet(relPath, entry) {
+  if (contentCache.size >= CONTENT_CACHE_LIMIT) {
+    const oldest = contentCacheOrder.shift();
+    if (oldest) {
+      contentCache.delete(oldest);
+    }
+  }
+  contentCache.set(relPath, entry);
+  contentCacheOrder.push(relPath);
+}
+
 async function readNote(relPath) {
   const full = safeResolve(relPath);
   try {
     const stat = await fsp.stat(full);
-    const cached = contentCache.get(relPath);
+    const cached = cacheGet(relPath);
     if (cached && cached.mtime === stat.mtimeMs) return cached.content;
     const content = await fsp.readFile(full, "utf8");
-    if (contentCache.size >= CONTENT_CACHE_LIMIT) {
-      contentCache.delete(contentCache.keys().next().value);
-    }
-    contentCache.set(relPath, { mtime: stat.mtimeMs, content });
+    cacheSet(relPath, { mtime: stat.mtimeMs, content });
     return content;
   } catch {
     return null;
@@ -185,6 +229,8 @@ async function writeFileAtomic(relPath, content) {
   await fsp.writeFile(tmp, content, "utf8");
   await fsp.rename(tmp, full);
   contentCache.delete(relPath);
+  const idx = contentCacheOrder.indexOf(relPath);
+  if (idx >= 0) contentCacheOrder.splice(idx, 1);
 }
 
 function ensureSafeName(name) {
@@ -209,7 +255,7 @@ async function trashPath(relPath) {
 
 async function rewriteLinks(oldBase, newBase) {
   // PRD FR-02.3: rewrite [[OldBase]] / [[OldBase|...]] to the new base name.
-  if (!oldBase || oldBase === newBase) return;
+  if (!oldBase || oldBase === newBase) return 0;
   const re = new RegExp(`\\[\\[${escapeRegExp(oldBase)}(\\]|\\|)`, "g");
   let rewritten = 0;
   for (const entry of cachedEntries) {
@@ -277,23 +323,24 @@ async function searchNotes(query, opts = {}) {
 // IPC gateway (PRD §16.1 SS-02/SS-17/SS-18/SS-19)
 // ---------------------------------------------------------------------------
 function registerIpc() {
-  ipcMain.handle("settings:get", (_e, key, fallback) =>
-    getSetting(key, fallback),
+  ipcMain.handle("settings:get", async (_e, key, fallback) =>
+    getSetting(assertString(key, "key"), fallback),
   );
-  ipcMain.handle("settings:set", (_e, key, value) => {
-    writeSettings({ [key]: value });
+  ipcMain.handle("settings:set", async (_e, key, value) => {
+    writeSettings({ [assertString(key, "key")]: value });
     return true;
   });
 
-  ipcMain.handle("vault:recent", () => getSetting("recentVaults", []));
+  ipcMain.handle("vault:recent", async () => getSetting("recentVaults", []));
   ipcMain.handle("vault:pickFolder", async () => {
     const r = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
     return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
   });
 
   ipcMain.handle("vault:create", async (_e, parentPath, name) => {
-    const cleaned = ensureSafeName(name);
-    const dir = path.join(parentPath, cleaned);
+    const safeParent = assertString(parentPath, "parentPath");
+    const cleaned = ensureSafeName(assertString(name, "name"));
+    const dir = path.join(safeParent, cleaned);
     if (fs.existsSync(dir)) throw new Error("A folder with that name already exists");
     await fsp.mkdir(dir, { recursive: true });
     const welcome = path.join(dir, "Welcome.md");
@@ -308,13 +355,14 @@ function registerIpc() {
   });
 
   ipcMain.handle("vault:open", async (_e, vaultPath) => {
-    const resolved = path.resolve(vaultPath);
+    const resolved = path.resolve(assertString(vaultPath, "vaultPath"));
     const stat = await fsp.stat(resolved);
     if (!stat.isDirectory()) throw new Error("Not a folder");
     await closeVaultInternal();
     activeVault = resolved;
+    await readSettings();
     await refreshIndex();
-    const recents = getSetting("recentVaults", []);
+    const recents = settingsCache?.recentVaults ?? [];
     writeSettings({
       recentVaults: [resolved, ...recents.filter((p) => p !== resolved)].slice(0, 25),
     });
@@ -327,57 +375,63 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle("vault:removeRecent", (_e, p) => {
-    writeSettings({ recentVaults: getSetting("recentVaults", []).filter((x) => x !== p) });
+  ipcMain.handle("vault:removeRecent", async (_e, p) => {
+    const safeP = assertString(p, "path");
+    const recents = settingsCache?.recentVaults ?? [];
+    writeSettings({ recentVaults: recents.filter((x) => x !== safeP) });
     return true;
   });
 
-  ipcMain.handle("fs:list", () => cachedEntries);
+  ipcMain.handle("fs:list", async () => [...cachedEntries]);
 
-  ipcMain.handle("fs:read", async (_e, relPath) => readNote(String(relPath)));
+  ipcMain.handle("fs:read", async (_e, relPath) => readNote(assertRelPath(relPath)));
 
   ipcMain.handle("fs:write", async (_e, relPath, content) => {
-    await writeFileAtomic(String(relPath), String(content));
+    await writeFileAtomic(assertRelPath(relPath), String(content ?? ""));
     return true;
   });
 
   ipcMain.handle("fs:createNote", async (_e, relPath, content) => {
-    const p = safeResolve(String(relPath));
+    const rp = assertRelPath(relPath);
+    const p = safeResolve(rp);
     if (fs.existsSync(p)) throw new Error("Already exists");
-    await writeFileAtomic(String(relPath), String(content ?? ""));
+    await writeFileAtomic(rp, String(content ?? ""));
     return true;
   });
 
   ipcMain.handle("fs:createFolder", async (_e, relPath) => {
-    await fsp.mkdir(safeResolve(String(relPath)), { recursive: true });
+    await fsp.mkdir(safeResolve(assertRelPath(relPath)), { recursive: true });
     return true;
   });
 
   ipcMain.handle("fs:rename", async (_e, oldRel, newRel) => {
-    const src = safeResolve(String(oldRel));
-    const dst = safeResolve(String(newRel));
+    const oldR = assertRelPath(oldRel);
+    const newR = assertRelPath(newRel);
+    const src = safeResolve(oldR);
+    const dst = safeResolve(newR);
     if (fs.existsSync(dst)) throw new Error("Destination already exists");
     await fsp.mkdir(path.dirname(dst), { recursive: true });
     await fsp.rename(src, dst);
-    const oldBase = path.basename(String(oldRel)).replace(/\.md$/i, "");
-    const newBase = path.basename(String(newRel)).replace(/\.md$/i, "");
-    if (String(oldRel).toLowerCase().endsWith(".md")) {
-      await rewriteLinks(oldBase, newBase);
+    const oldBase = path.basename(oldR).replace(/\.md$/i, "");
+    const newBase = path.basename(newR).replace(/\.md$/i, "");
+    let linkCount = 0;
+    if (oldR.toLowerCase().endsWith(".md")) {
+      linkCount = await rewriteLinks(oldBase, newBase);
     }
     await refreshIndex();
-    return true;
+    return { rewritten: linkCount };
   });
 
   ipcMain.handle("fs:trash", async (_e, relPath) => {
-    await trashPath(String(relPath));
+    await trashPath(assertRelPath(relPath));
     await refreshIndex();
     return true;
   });
 
   ipcMain.handle("search:notes", async (_e, query, opts) => searchNotes(query, opts));
 
-  ipcMain.handle("shell:reveal", (_e, relPath) => {
-    const full = safeResolve(String(relPath));
+  ipcMain.handle("shell:reveal", async (_e, relPath) => {
+    const full = safeResolve(assertRelPath(relPath));
     shell.showItemInFolder(full);
     return true;
   });
@@ -418,6 +472,7 @@ async function closeVaultInternal() {
   activeVault = null;
   cachedEntries = [];
   contentCache = new Map();
+  contentCacheOrder = [];
 }
 
 // ---------------------------------------------------------------------------
@@ -494,7 +549,10 @@ function buildMenu(win) {
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
-app.whenReady().then(() => {
+let isQuitting = false;
+
+app.whenReady().then(async () => {
+  await readSettings();
   registerIpc();
   const win = createWindow();
   buildMenu(win);
@@ -513,6 +571,15 @@ app.whenReady().then(() => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  app.on("before-quit", async () => {
+    if (isQuitting) return;
+    isQuitting = true;
+    if (watcher) {
+      await watcher.close();
+      watcher = null;
+    }
+  });
 });
 
 app.on("window-all-closed", () => {
@@ -521,4 +588,5 @@ app.on("window-all-closed", () => {
 
 process.on("uncaughtException", (err) => {
   console.error("[locus] uncaught", err);
+  app.exit(1);
 });

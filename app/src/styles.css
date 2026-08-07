@@ -354,3 +354,12 @@ textarea,
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Hide scrollbar for tab bar */
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

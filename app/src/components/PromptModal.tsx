@@ -58,7 +58,7 @@ export function PromptModal({
         <h2 className="font-locus-serif text-lg text-locus-ink">{request.title}</h2>
         <input
           ref={inputRef}
-          className="mt-3 w-full rounded-locus-sm border border-locus-border bg-locus-bg px-2 py-1.5 text-[13px] text-locus-ink placeholder:text-locus-ink-muted focus:border-locus-info focus:outline-none"
+          className="mt-3 w-full rounded-locus-sm border border-locus-border bg-locus-bg px-2 py-1.5 text-[13px] text-locus-ink placeholder:text-locus-ink-muted           focus:border-locus-accent focus:outline-none"
           placeholder={request.placeholder ?? "Name"}
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -72,7 +72,7 @@ export function PromptModal({
             Cancel
           </button>
           <button
-            className="rounded-locus-sm bg-locus-info px-3 py-1 text-[13px] text-white hover:opacity-90 disabled:opacity-40"
+            className="rounded-locus-sm bg-locus-accent px-3 py-1 text-[13px] text-white hover:opacity-90 disabled:opacity-40"
             disabled={!value.trim()}
             onClick={commit}
           >

@@ -77,6 +77,7 @@ export function EditorPane(props: EditorPaneProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSent = useRef(props.content);
   const themeComp = useRef(new Compartment());
+  const autoComp = useRef(new Compartment());
   const propsRef = useRef(props);
   propsRef.current = props;
 
@@ -94,7 +95,6 @@ export function EditorPane(props: EditorPaneProps) {
       bracketMatching(),
       closeBrackets(),
       highlightSelectionMatches(),
-      autocompletion({ override: [wikilinkCompletions(props.files)] }),
       markdown(),
       keymap.of([
         ...closeBracketsKeymap,
@@ -111,6 +111,7 @@ export function EditorPane(props: EditorPaneProps) {
           },
         },
       ]),
+      autoComp.current.of(autocompletion({ override: [wikilinkCompletions(props.files)] })),
       themeComp.current.of(theme),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
@@ -156,6 +157,14 @@ export function EditorPane(props: EditorPaneProps) {
       ),
     });
   }, [props.dark]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: autoComp.current.reconfigure(autocompletion({ override: [wikilinkCompletions(props.files)] })),
+    });
+  }, [props.files]);
 
   useEffect(() => {
     const view = viewRef.current;
