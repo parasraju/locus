@@ -77,7 +77,11 @@ function toggleHeading(view: EditorView, level: number) {
   else if (m) insert = marker.replace(/^#{1,6} /, `${"#".repeat(level)} `);
   else insert = marker;
   const to = m ? line.from + m[0].length : line.from;
-  view.dispatch({ changes: { from: line.from, to, insert } });
+  const cursor = insert ? line.from + insert.length : line.from;
+  view.dispatch({
+    changes: { from: line.from, to, insert },
+    selection: EditorSelection.cursor(cursor),
+  });
   return true;
 }
 function insertLink(view: EditorView) {

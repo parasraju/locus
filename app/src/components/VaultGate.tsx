@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { FolderOpen, FolderPlus, History, X, Sparkles } from "lucide-react";
+import { FolderOpen, FolderPlus, History, X } from "lucide-react";
+import icon from "../assets/icon.png";
 
 interface VaultGateProps {
   onOpenVault: (path: string) => void;
@@ -57,9 +58,12 @@ export function VaultGate({ onOpenVault }: VaultGateProps) {
     <div className="locus-anim-fade flex h-full items-center justify-center bg-locus-bg px-6">
       <div className="locus-anim-rise w-full max-w-md">
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-locus-xl bg-locus-accent-soft text-locus-accent shadow-locus-card">
-            <Sparkles size={24} />
-          </div>
+          <img
+            src={icon}
+            alt="Locus"
+            className="h-14 w-14 rounded-locus-xl shadow-locus-card"
+            draggable={false}
+          />
           <h1 className="mt-5 text-[30px] font-semibold tracking-tight text-locus-ink">Locus</h1>
           <p className="mt-1.5 text-[14px] text-locus-ink-muted">
             Fast, local-first Markdown knowledge workspace. Your notes are plain files on disk.

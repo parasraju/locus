@@ -3,6 +3,7 @@ import type { Ref } from "react";
 import {
   EditorView,
   keymap,
+  lineNumbers,
   drawSelection,
   dropCursor,
 } from "@codemirror/view";
@@ -30,7 +31,6 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import type { FlatEntry, EditorMode } from "../types";
 import { MarkdownView } from "../lib/markdown";
 import { runFormat, type ToolbarFormat } from "../lib/formatActions";
-import { renderedEditorPlugin } from "../lib/renderedEditor";
 
 export interface EditorPaneHandle {
   scrollToOffset: (offset: number) => void;
@@ -86,6 +86,7 @@ export function EditorPane(props: EditorPaneProps) {
       ? [oneDark, EditorView.theme({ "&": { backgroundColor: "transparent" } })]
       : [syntaxHighlighting(defaultHighlightStyle)];
     return [
+      lineNumbers(),
       history(),
       drawSelection(),
       dropCursor(),
@@ -95,7 +96,6 @@ export function EditorPane(props: EditorPaneProps) {
       closeBrackets(),
       highlightSelectionMatches(),
       markdown(),
-      renderedEditorPlugin,
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,
@@ -128,8 +128,11 @@ export function EditorPane(props: EditorPaneProps) {
     ];
   };
 
+  const isSourceShown = props.mode === "source" || props.mode === "split";
+  const isPreviewShown = props.mode === "split" || props.mode === "reading";
+
   useEffect(() => {
-    if (!hostRef.current) return;
+    if (!hostRef.current || !isSourceShown) return;
     const view = new EditorView({
       state: EditorState.create({
         doc: props.content,
@@ -144,7 +147,7 @@ export function EditorPane(props: EditorPaneProps) {
       viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isSourceShown]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -203,9 +206,6 @@ export function EditorPane(props: EditorPaneProps) {
       viewRef.current?.focus();
     },
   }));
-
-  const isSourceShown = props.mode === "source" || props.mode === "split";
-  const isPreviewShown = props.mode === "split" || props.mode === "reading";
 
   return (
     <div className="flex h-full w-full overflow-hidden">

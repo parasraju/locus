@@ -1,11 +1,15 @@
 import { PenLine } from "lucide-react";
+import icon from "../assets/icon.png";
 
 export function EmptyState({ onNewNote, onOpenFile }: { onNewNote: () => void; onOpenFile: () => void }) {
   return (
     <div className="locus-anim-rise flex h-full flex-col items-center justify-center px-8 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-locus-xl bg-locus-accent-soft text-locus-accent shadow-locus-card">
-        <PenLine size={28} />
-      </div>
+      <img
+        src={icon}
+        alt="Locus"
+        className="h-16 w-16 rounded-locus-xl shadow-locus-card"
+        draggable={false}
+      />
       <h1 className="mt-6 font-locus-sans text-xl font-semibold tracking-tight text-locus-ink">
         Start writing
       </h1>

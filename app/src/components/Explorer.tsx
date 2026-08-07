@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { FlatEntry } from "../types";
 import { formatBytes } from "../lib/format";
+import icon from "../assets/icon.png";
 import {
   Search,
   Plus,
@@ -17,7 +18,6 @@ import {
   Settings,
   Palette,
   LogOut,
-  FolderGit2,
 } from "lucide-react";
 
 interface TreeNode {
@@ -261,9 +261,12 @@ export function Explorer(props: ExplorerProps) {
           className="flex w-full items-center gap-2 rounded-locus-md px-2 py-1.5 transition-colors hover:bg-locus-surface-hover"
           onClick={() => setSettingsOpen((s) => !s)}
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-locus-sm bg-locus-accent-soft text-locus-accent">
-            <FolderGit2 size={14} />
-          </span>
+          <img
+            src={icon}
+            alt="Locus"
+            className="h-6 w-6 rounded-locus-sm"
+            draggable={false}
+          />
           <span className="flex-1 truncate text-left text-[13px] font-semibold text-locus-ink">
             {props.vaultName}
           </span>

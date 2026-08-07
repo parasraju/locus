@@ -487,6 +487,7 @@ function createWindow() {
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#111315" : "#F7F8FA",
     show: false,
     title: "Locus",
+    icon: path.join(__dirname, "..", "..", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
