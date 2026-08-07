@@ -167,7 +167,7 @@ export function CommandPalette({
               ) : (
                 <CommandIcon size={15} className="shrink-0 text-locus-ink-muted" />
               )}
-              <span className="truncate">{r.kind === "file" ? r.title : r.title}</span>
+              <span className="truncate">{r.title}</span>
               {r.kind === "file" && r.detail && (
                 <span className="ml-auto truncate font-mono text-[11px] text-locus-ink-muted">{r.detail}</span>
               )}

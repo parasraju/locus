@@ -94,12 +94,15 @@ export default function App() {
   }, []);
 
   // ---- vault ----
-  async function refreshFiles() {
-    if (!vault) return;
+  async function refreshFiles(): Promise<FlatEntry[]> {
+    if (!vault) return [];
     try {
-      setFiles(await api().fs.list());
+      const list = await api().fs.list();
+      setFiles(list);
+      return list;
     } catch (e) {
       toast(String((e as Error).message ?? e), "error");
+      return [];
     }
   }
 
@@ -111,8 +114,7 @@ export default function App() {
       setActiveRel(null);
       setContent("");
       setDirty(false);
-      await refreshFiles();
-      const list = await api().fs.list();
+      const list = await refreshFiles();
       const welcome = list.find((f) => !f.isDir && f.name === "Welcome.md");
       const first = list.find((f) => !f.isDir && f.name.endsWith(".md"));
       if (welcome) await openNote(welcome.relPath);
@@ -530,7 +532,6 @@ export default function App() {
                   <EditorPane
                     key={activeRel}
                     relPath={activeRel}
-                    name={activeTab?.name ?? ""}
                     content={content}
                     mode={activeMode}
                     files={files}

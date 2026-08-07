@@ -404,9 +404,6 @@ textarea,
   padding-left: 0.8em;
   margin-left: 0;
 }
-.cm-editor .cm-keyword {
-  color: var(--color-locus-ink-muted);
-}
 /* Hide gutters in split mode for a cleaner look */
 .locus-split-mode .cm-editor .cm-gutters {
   display: none;

@@ -24,10 +24,6 @@ export function wordCount(content: string): number {
   return words.length;
 }
 
-export function charCount(content: string): number {
-  return stripCodeAndFrontmatter(content).replace(/\s+/g, "").length;
-}
-
 export function paragraphCount(content: string): number {
   return stripCodeAndFrontmatter(content)
     .split(/\n{2,}/)

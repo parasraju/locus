@@ -197,16 +197,17 @@ function BacklinkList({ name, onOpen }: { name: string; onOpen: (relPath: string
       try {
         const results = await api().search.notes(name, { caseSensitive: false });
         if (cancelled || !Array.isArray(results)) return;
-        const rows: { relPath: string; linked: boolean }[] = [];
-        for (const r of results) {
-          const content = await api().fs.read(r.relPath);
-          rows.push({
-            relPath: r.relPath,
-            linked: content ? content.includes(`[[${name}`) : false,
-          });
-        }
+        const rows = await Promise.all(
+          results.map(async (r) => {
+            const content = await api().fs.read(r.relPath);
+            return {
+              relPath: r.relPath,
+              linked: content ? content.includes(`[[${name}`) : false,
+            };
+          }),
+        );
         if (!cancelled) {
-          setItems(rows.filter((r) => r.relPath !== undefined));
+          setItems(rows.filter((i) => i.relPath !== undefined));
           setTitle(name);
         }
       } catch {

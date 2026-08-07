@@ -1,5 +1,7 @@
 <div align="center">
 
+  <img src="icon.png" alt="Locus" width="96" height="96" />
+
   **A calm, local-first Markdown knowledge workspace for your desktop**
 
   Notes are plain `.md` files on your disk — no database, no lock-in, no cloud.

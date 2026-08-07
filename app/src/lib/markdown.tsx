@@ -131,7 +131,6 @@ export function MarkdownView({
             );
           },
           code: Code as never,
-          p: ({ children }) => <p>{children}</p>,
         }}
       >
         {content}

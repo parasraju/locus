@@ -30,7 +30,6 @@ export interface Tab {
   name: string;
   mode: EditorMode;
   dirty: boolean;
-  scrollTop?: number;
 }
 
 export interface Command {

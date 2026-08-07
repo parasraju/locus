@@ -41,7 +41,6 @@ export interface EditorPaneHandle {
 
 interface EditorPaneProps {
   relPath: string;
-  name: string;
   content: string;
   mode: EditorMode;
   files: FlatEntry[];
