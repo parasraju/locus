@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img width="1738" height="905" alt="851d8984-3d8e-4d05-920a-d3bf14f713f9" src="https://github.com/user-attachments/assets/c8245c29-2d33-450f-b96a-7742403dd765" />
+  <img width="1500" height="905" alt="851d8984-3d8e-4d05-920a-d3bf14f713f9" src="https://github.com/user-attachments/assets/c8245c29-2d33-450f-b96a-7742403dd765" />
 
 
   # Locus
