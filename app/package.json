@@ -13,6 +13,7 @@
     "build": "tsc --noEmit && vite build",
     "start": "electron .",
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "dist": "npm run build && electron-builder --win"
   },
   "dependencies": {
