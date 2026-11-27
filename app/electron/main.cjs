@@ -13,6 +13,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const chokidar = require("chokidar");
+const { moveToTrash } = require("./trash.cjs");
 
 const IS_DEV = Boolean(process.env.VITE_DEV_SERVER_URL);
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || "http://localhost:5173";
@@ -240,17 +241,8 @@ function ensureSafeName(name) {
 }
 
 async function trashPath(relPath) {
-  const full = safeResolve(relPath);
-  const stamp = new Date().toISOString().slice(0, 10);
-  const dest = path.join(
-    activeVault,
-    ".locus",
-    "trash",
-    stamp,
-    path.basename(full),
-  );
-  await fsp.mkdir(path.dirname(dest), { recursive: true });
-  await fsp.rename(full, dest);
+  if (!activeVault) throw new Error("No active vault");
+  await moveToTrash({ vaultRoot: activeVault, relPath });
 }
 
 async function rewriteLinks(oldBase, newBase) {
