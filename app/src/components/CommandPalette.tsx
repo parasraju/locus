@@ -117,7 +117,7 @@ export function CommandPalette({
           )}
           <input
             ref={inputRef}
-            className="w-full bg-transparent py-3.5 text-[15px] text-locus-ink placeholder:text-locus-ink-muted focus:outline-none"
+            className="w-full bg-transparent py-3.5 text-[15px] text-locus-ink placeholder:text-locus-ink-muted"
             placeholder={mode === "files" ? "Open a note…" : "Type a command or note name…"}
             value={query}
             onChange={(e) => {
@@ -156,11 +156,19 @@ export function CommandPalette({
           {results.map((r, i) => (
             <li
               key={r.id}
+              tabIndex={i === selected ? 0 : -1}
               className={`flex cursor-pointer items-center gap-2.5 rounded-locus-md px-2.5 py-2 text-[14px] transition-colors ${
                 i === selected ? "bg-locus-accent-soft text-locus-ink" : "text-locus-ink-secondary"
               }`}
               onMouseEnter={() => setSelected(i)}
+              onFocus={() => setSelected(i)}
               onClick={() => run(i)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  run(i);
+                }
+              }}
             >
               {r.kind === "file" ? (
                 <FileText size={15} className="shrink-0 text-locus-ink-muted" />

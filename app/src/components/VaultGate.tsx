@@ -92,7 +92,7 @@ export function VaultGate({ onOpenVault }: VaultGateProps) {
           <div className="locus-anim-rise mt-4 rounded-locus-lg border border-locus-border bg-locus-surface p-4 shadow-locus-card">
             <div className="flex items-center gap-2">
               <input
-                className="flex-1 rounded-locus-md border border-locus-border bg-locus-bg px-3 py-2 text-[14px] text-locus-ink focus:border-locus-accent focus:outline-none"
+                className="flex-1 rounded-locus-md border border-locus-border bg-locus-bg px-3 py-2 text-[14px] text-locus-ink"
                 placeholder="Vault name"
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}

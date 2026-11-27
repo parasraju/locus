@@ -278,7 +278,7 @@ export function Explorer(props: ExplorerProps) {
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-locus-ink-muted" />
           <input
-            className="w-full rounded-locus-md border border-locus-border bg-locus-surface py-1.5 pl-8 pr-7 text-[13px] text-locus-ink placeholder:text-locus-ink-muted focus:border-locus-accent focus:outline-none"
+            className="w-full rounded-locus-md border border-locus-border bg-locus-surface py-1.5 pl-8 pr-7 text-[13px] text-locus-ink placeholder:text-locus-ink-muted"
             placeholder="Filter files…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
