@@ -47,6 +47,7 @@ export default function App() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [toolbarHover, setToolbarHover] = useState(false);
   const [toolbarTyping, setToolbarTyping] = useState(false);
+  const [toolbarFocusWithin, setToolbarFocusWithin] = useState(false);
   const editorRef = useRef<EditorPaneHandle | null>(null);
 
   const dark = theme === "dark" || (theme === "system" && systemPrefersDark());
@@ -431,7 +432,8 @@ export default function App() {
   const activeMode = activeTab?.mode ?? "source";
   const vaultName = vault ? vault.split(/[\\/]/).pop() ?? vault : "";
 
-  const toolbarVisible = Boolean(activeRel) && toolbarHover && !toolbarTyping;
+  const toolbarVisible =
+    Boolean(activeRel) && ((toolbarHover && !toolbarTyping) || toolbarFocusWithin);
 
   if (!ready) return <div className="flex h-full items-center justify-center bg-locus-bg text-locus-ink-muted">Locus…</div>;
   if (noApi) {
@@ -488,12 +490,19 @@ export default function App() {
                 {tabs.map((t) => (
                   <div
                     key={t.relPath}
+                    tabIndex={0}
                     className={`group flex max-w-[220px] cursor-pointer items-center gap-1.5 rounded-locus-md px-3 py-1.5 text-[12.5px] transition-colors ${
                       t.relPath === activeRel
                         ? "bg-locus-surface text-locus-ink shadow-locus-card"
                         : "text-locus-ink-muted hover:bg-locus-surface-hover hover:text-locus-ink"
                     }`}
                     onClick={() => openNote(t.relPath)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openNote(t.relPath);
+                      }
+                    }}
                   >
                     <span className="truncate">{t.name}</span>
                     {t.dirty && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-locus-warning" />}
@@ -512,19 +521,29 @@ export default function App() {
               </div>
 
               {activeRel && (
-                <Toolbar
-                  visible={toolbarVisible}
-                  onFormat={handleFormat}
-                  onSearch={() => {
-                    setPaletteMode("files");
-                    setPaletteOpen(true);
+                <div
+                  onFocus={() => setToolbarFocusWithin(true)}
+                  onBlur={(e) => {
+                    const next = e.relatedTarget;
+                    if (!(next instanceof Node) || !e.currentTarget.contains(next)) {
+                      setToolbarFocusWithin(false);
+                    }
                   }}
-                  onAssistant={() => setAssistantOpen((s) => !s)}
-                  onPalette={() => {
-                    setPaletteMode("commands");
-                    setPaletteOpen(true);
-                  }}
-                />
+                >
+                  <Toolbar
+                    visible={toolbarVisible}
+                    onFormat={handleFormat}
+                    onSearch={() => {
+                      setPaletteMode("files");
+                      setPaletteOpen(true);
+                    }}
+                    onAssistant={() => setAssistantOpen((s) => !s)}
+                    onPalette={() => {
+                      setPaletteMode("commands");
+                      setPaletteOpen(true);
+                    }}
+                  />
+                </div>
               )}
 
               <div className="min-h-0 flex-1">
