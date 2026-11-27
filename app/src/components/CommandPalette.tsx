@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Command, FlatEntry } from "../types";
+import { nextPaletteMode } from "../lib/paletteMode";
 import { FileText, Command as CommandIcon, CornerDownLeft, Search } from "lucide-react";
 
 interface CommandPaletteProps {
@@ -121,9 +122,9 @@ export function CommandPalette({
             placeholder={mode === "files" ? "Open a note…" : "Type a command or note name…"}
             value={query}
             onChange={(e) => {
-              setQuery(e.target.value);
-              if (e.target.value.startsWith("/")) onSwitchMode("files");
-              else onSwitchMode("commands");
+              const next = e.target.value;
+              setQuery(next);
+              onSwitchMode(nextPaletteMode(mode, query, next));
             }}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") {

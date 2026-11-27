@@ -281,6 +281,10 @@ textarea.border:focus {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.locus-wikilink-missing {
+  color: var(--color-locus-danger);
+  text-decoration-style: wavy;
+}
 .locus-prose hr {
   border: none;
   border-top: 1px solid var(--color-locus-border);

@@ -7,12 +7,15 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import { remarkWikilinks, remarkCallouts } from "./remarkPlugins";
 import { sanitizeSchema } from "./sanitize";
+import { noteUrlTransform } from "./urlTransform";
+import { rehypeTaskIndex } from "./taskIndex";
 import type { ReactNode } from "react";
 
 export interface MarkdownViewProps {
   content: string;
   reading?: boolean;
   onOpenNote?: (target: string) => void;
+  noteExists?: (target: string) => boolean;
   onTaskToggle?: (offset: number, checked: boolean) => void;
   className?: string;
 }
@@ -77,6 +80,7 @@ export function MarkdownView({
   content,
   reading,
   onOpenNote,
+  noteExists,
   onTaskToggle,
   className,
 }: MarkdownViewProps) {
@@ -88,16 +92,19 @@ export function MarkdownView({
           [rehypeKatex, { throwOnError: false, strict: false }],
           rehypeRaw,
           [rehypeSanitize, sanitizeSchema],
+          rehypeTaskIndex,
         ]}
+        urlTransform={noteUrlTransform}
         components={{
           a: ({ href, children }) => {
             if (typeof href === "string" && href.startsWith("locus://")) {
               const rest = href.slice("locus://".length);
               const target = decodeURIComponent(rest.split("#")[0]);
+              const missing = noteExists ? !noteExists(target) : false;
               return (
                 <a
                   href="#"
-                  className="locus-wikilink underline decoration-dotted"
+                  className={`locus-wikilink underline decoration-dotted${missing ? " locus-wikilink-missing" : ""}`}
                   onClick={(e) => {
                     e.preventDefault();
                     onOpenNote?.(target);
@@ -116,16 +123,18 @@ export function MarkdownView({
             }
             return <a href={href}>{children}</a>;
           },
-          input: ({ node, checked, ...rest }) => {
-            const offset = (node?.position?.start as { offset?: number } | undefined)?.offset;
+          input: ({ node, checked, disabled: _disabled, ...rest }) => {
+            const raw = (node?.properties as { dataTaskIndex?: unknown } | undefined)?.dataTaskIndex;
+            const index = typeof raw === "number" ? raw : -1;
             return (
               <input
                 {...rest}
                 type="checkbox"
                 checked={checked}
+                disabled={false}
                 className="align-middle"
                 onChange={(e) => {
-                  if (typeof offset === "number") onTaskToggle?.(offset, e.target.checked);
+                  if (index >= 0) onTaskToggle?.(index, e.target.checked);
                 }}
               />
             );

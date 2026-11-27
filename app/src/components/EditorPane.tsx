@@ -31,10 +31,13 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import type { FlatEntry, EditorMode } from "../types";
 import { MarkdownView } from "../lib/markdown";
 import { runFormat, type ToolbarFormat } from "../lib/formatActions";
+import { findNote } from "../lib/resolveNote";
+import { wikilinkCompletion } from "../lib/wikilinkComplete";
 
 export interface EditorPaneHandle {
   scrollToOffset: (offset: number) => void;
   saveNow: () => void;
+  flush: () => void;
   format: (kind: ToolbarFormat) => void;
   focus: () => void;
 }
@@ -45,7 +48,7 @@ interface EditorPaneProps {
   mode: EditorMode;
   files: FlatEntry[];
   dark: boolean;
-  onChange: (content: string) => void;
+  onChange: (relPath: string, content: string) => void;
   onOpenNote: (target: string) => void;
   onTaskToggle: (offset: number, checked: boolean) => void;
   onRequestSave: () => void;
@@ -56,17 +59,10 @@ function wikilinkCompletions(files: FlatEntry[]) {
   return (context: { matchBefore: (re: RegExp) => { from: number; to: number; text: string } | null }) => {
     const word = context.matchBefore(/\[\[[^\]\n]*$/);
     if (!word) return null;
-    const typed = word.text.slice(2).toLowerCase();
-    const options = files
-      .filter((f) => !f.isDir && f.name.endsWith(".md"))
-      .map((f) => f.relPath)
-      .filter((p) => !typed || p.toLowerCase().includes(typed))
-      .slice(0, 50)
-      .map((p) => {
-        const base = p.replace(/\.md$/i, "").split("/").pop() ?? p;
-        return { label: base, detail: p, apply: `[[${base}]]` };
-      });
-    return { from: word.from + 2, options };
+    const paths = files.filter((f) => !f.isDir).map((f) => f.relPath);
+    const result = wikilinkCompletion(word.text, paths);
+    if (!result) return null;
+    return { from: word.from + result.fromOffset, options: result.options };
   };
 }
 
@@ -101,27 +97,20 @@ export function EditorPane(props: EditorPaneProps) {
         ...searchKeymap,
         ...historyKeymap,
         ...completionKeymap,
-        {
-          key: "Mod-s",
-          preventDefault: true,
-          run: () => {
-            propsRef.current.onRequestSave();
-            return true;
-          },
-        },
       ]),
       autoComp.current.of(autocompletion({ override: [wikilinkCompletions(props.files)] })),
       themeComp.current.of(theme),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
           const next = update.state.doc.toString();
-          if (next !== lastSent.current) {
-            lastSent.current = next;
-            if (saveTimer.current) clearTimeout(saveTimer.current);
-            saveTimer.current = setTimeout(() => {
-              propsRef.current.onChange(next);
-            }, 250);
-          }
+          if (saveTimer.current) clearTimeout(saveTimer.current);
+          saveTimer.current = setTimeout(() => {
+            saveTimer.current = null;
+            if (next !== lastSent.current) {
+              lastSent.current = next;
+              propsRef.current.onChange(propsRef.current.relPath, next);
+            }
+          }, 250);
         }
       }),
     ];
@@ -129,6 +118,21 @@ export function EditorPane(props: EditorPaneProps) {
 
   const isSourceShown = props.mode === "source" || props.mode === "split";
   const isPreviewShown = props.mode === "split" || props.mode === "reading";
+
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const view = viewRef.current;
+    if (!view) return;
+    const next = view.state.doc.toString();
+    if (next !== lastSent.current) {
+      lastSent.current = next;
+      propsRef.current.onChange(propsRef.current.relPath, next);
+    }
+  };
 
   useEffect(() => {
     if (!hostRef.current || !isSourceShown) return;
@@ -142,6 +146,7 @@ export function EditorPane(props: EditorPaneProps) {
     viewRef.current = view;
     lastSent.current = props.content;
     return () => {
+      flushRef.current();
       view.destroy();
       viewRef.current = null;
     };
@@ -172,11 +177,11 @@ export function EditorPane(props: EditorPaneProps) {
     const view = viewRef.current;
     if (!view) return;
     const current = view.state.doc.toString();
-    if (current !== props.content && !view.hasFocus) {
+    if (current !== props.content && current === lastSent.current && !saveTimer.current) {
+      lastSent.current = props.content;
       view.dispatch({
         changes: { from: 0, to: current.length, insert: props.content },
       });
-      lastSent.current = props.content;
     }
   }, [props.content, props.relPath]);
 
@@ -191,8 +196,11 @@ export function EditorPane(props: EditorPaneProps) {
       });
       view.focus();
     },
+    flush() {
+      flushRef.current();
+    },
     saveNow() {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+      flushRef.current();
       propsRef.current.onRequestSave();
     },
     format(kind: ToolbarFormat) {
@@ -231,6 +239,7 @@ export function EditorPane(props: EditorPaneProps) {
               content={props.content}
               reading={props.mode === "reading"}
               onOpenNote={props.onOpenNote}
+              noteExists={(target) => findNote(props.files, target) !== null}
               onTaskToggle={props.onTaskToggle}
             />
           </div>

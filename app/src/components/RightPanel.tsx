@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { FlatEntry } from "../types";
 import { api } from "../api";
-import { wordCount, readingTimeMinutes, paragraphCount, titleOf } from "../lib/format";
+import { wordCount, readingTimeMinutes, paragraphCount, titleOf, extractTags } from "../lib/format";
 import { ListTree, Link2, FileText, Tags, Hash } from "lucide-react";
 
 type PanelTab = "outline" | "links" | "properties";
@@ -29,17 +29,6 @@ function extractHeadings(content: string): Heading[] {
     out.push({ level: m[1].length, text: m[2].trim(), offset: m.index });
   }
   return out;
-}
-
-function extractTags(content: string): string[] {
-  const tags = new Set<string>();
-  const re = /#([\p{L}\p{N}_/-]+)/gu;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(content))) {
-    const t = m[1];
-    if (!/^(note|warning|danger|success|info)$/.test(t)) tags.add(t);
-  }
-  return [...tags];
 }
 
 export function RightPanel({

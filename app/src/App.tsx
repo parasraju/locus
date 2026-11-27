@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, hasApi } from "./api";
 import type { Command, EditorMode, FlatEntry, Tab, Theme } from "./types";
-import { todayIso } from "./lib/format";
+import { applyTaskToggle, todayIso } from "./lib/format";
+import { findNote } from "./lib/resolveNote";
 import type { ToolbarFormat } from "./lib/formatActions";
 import { VaultGate } from "./components/VaultGate";
 import { Explorer } from "./components/Explorer";
@@ -21,7 +22,7 @@ interface Toast {
   kind: "info" | "error";
 }
 
-const MODE_ORDER: EditorMode[] = ["source", "reading"];
+const MODE_ORDER: EditorMode[] = ["source", "split", "reading"];
 
 function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -49,6 +50,7 @@ export default function App() {
   const [toolbarTyping, setToolbarTyping] = useState(false);
   const [toolbarFocusWithin, setToolbarFocusWithin] = useState(false);
   const editorRef = useRef<EditorPaneHandle | null>(null);
+  const vaultOpenRef = useRef(false);
 
   const dark = theme === "dark" || (theme === "system" && systemPrefersDark());
 
@@ -96,7 +98,10 @@ export default function App() {
 
   // ---- vault ----
   async function refreshFiles(): Promise<FlatEntry[]> {
-    if (!vault) return [];
+    // `vault` state is still null in the same turn that opens it. The main
+    // process already has the vault, so the ref — set before this call — is
+    // the signal that a list is meaningful.
+    if (!vaultOpenRef.current) return [];
     try {
       const list = await api().fs.list();
       setFiles(list);
@@ -107,9 +112,22 @@ export default function App() {
     }
   }
 
+  function closeVault() {
+    vaultOpenRef.current = false;
+    setFiles([]);
+    setTabs([]);
+    setActiveRel(null);
+    setContent("");
+    contentRef.current = "";
+    setDirty(false);
+    dirtyRef.current = false;
+    api().vault.close().then(() => setVault(null));
+  }
+
   async function openVault(path: string) {
     try {
       const res = await api().vault.open(path);
+      vaultOpenRef.current = true;
       setVault(res.path);
       setTabs([]);
       setActiveRel(null);
@@ -126,11 +144,9 @@ export default function App() {
   }
 
   async function openNote(relPath: string) {
-    if (!vault) return;
+    if (!vaultOpenRef.current) return;
     try {
-      if (activeRel && activeRel !== relPath && dirty) {
-        await api().fs.write(activeRel, content);
-      }
+      await persistLeaving(relPath);
       setTabs((prev) => {
         const existing = prev.find((t) => t.relPath === relPath);
         if (existing) return prev;
@@ -139,22 +155,31 @@ export default function App() {
       setActiveRel(relPath);
       const c = await api().fs.read(relPath);
       setContent(c ?? "");
+      contentRef.current = c ?? "";
       setDirty(false);
+      dirtyRef.current = false;
     } catch (e) {
       toast(String((e as Error).message ?? e), "error");
     }
   }
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveEpoch = useRef(0);
   function scheduleSave(relPath: string, text: string) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    const epoch = ++saveEpoch.current;
     saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
       api()
         .fs.write(relPath, text)
         .then((ok) => {
+          if (epoch !== saveEpoch.current) return;
           if (ok) {
-            setDirty((d) => (activeRel === relPath ? false : d));
             setTabs((prev) => prev.map((t) => (t.relPath === relPath ? { ...t, dirty: false } : t)));
+            if (activeRelRef.current === relPath) {
+              dirtyRef.current = false;
+              setDirty(false);
+            }
           } else {
             toast("Save failed — changes kept in memory", "error");
           }
@@ -163,12 +188,35 @@ export default function App() {
     }, 800);
   }
 
-  function handleChange(next: string) {
-    if (!activeRel) return;
-    setContent(next);
-    setDirty(true);
-    setTabs((prev) => prev.map((t) => (t.relPath === activeRel ? { ...t, dirty: true } : t)));
-    scheduleSave(activeRel, next);
+  function handleChange(relPath: string, next: string) {
+    if (activeRelRef.current === relPath) {
+      contentRef.current = next;
+      dirtyRef.current = true;
+      setContent(next);
+      setDirty(true);
+    }
+    setTabs((prev) => prev.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t)));
+    scheduleSave(relPath, next);
+  }
+
+  async function persistLeaving(nextRel: string) {
+    const leaving = activeRelRef.current;
+    if (!leaving || leaving === nextRel) return;
+    editorRef.current?.flush();
+    if (!dirtyRef.current) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    saveEpoch.current += 1;
+    const text = contentRef.current;
+    dirtyRef.current = false;
+    try {
+      await api().fs.write(leaving, text);
+      setTabs((prev) => prev.map((t) => (t.relPath === leaving ? { ...t, dirty: false } : t)));
+    } catch (error) {
+      dirtyRef.current = true;
+      setDirty(true);
+      throw error;
+    }
   }
 
   const contentRef = useRef(content);
@@ -180,35 +228,58 @@ export default function App() {
 
   function requestSave() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
     const rel = activeRelRef.current;
-    if (rel && dirtyRef.current) {
-      api()
-        .fs.write(rel, contentRef.current)
-        .then((ok) => {
-          if (ok) {
-            setDirty(false);
-            setTabs((prev) => prev.map((t) => (t.relPath === rel ? { ...t, dirty: false } : t)));
-          }
-        })
-        .catch(() => toast("Save failed — changes kept in memory", "error"));
-    }
+    if (!rel || !dirtyRef.current) return;
+    const epoch = ++saveEpoch.current;
+    const text = contentRef.current;
+    api()
+      .fs.write(rel, text)
+      .then((ok) => {
+        if (epoch !== saveEpoch.current) return;
+        if (ok) {
+          dirtyRef.current = false;
+          setDirty(false);
+          setTabs((prev) => prev.map((t) => (t.relPath === rel ? { ...t, dirty: false } : t)));
+        } else {
+          toast("Save failed — changes kept in memory", "error");
+        }
+      })
+      .catch(() => toast("Save failed — changes kept in memory", "error"));
   }
 
   function closeTab(relPath: string) {
-    if (relPath === activeRel && dirty) {
-      api().fs.write(relPath, content).catch(() => toast("Save failed", "error"));
+    if (relPath === activeRelRef.current) {
+      editorRef.current?.flush();
+      if (dirtyRef.current) {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        saveEpoch.current += 1;
+        const text = contentRef.current;
+        api().fs.write(relPath, text).catch(() => toast("Save failed", "error"));
+      }
     }
     setTabs((prev) => {
       const next = prev.filter((t) => t.relPath !== relPath);
-      if (activeRel === relPath) {
+      if (activeRelRef.current === relPath) {
         const neighbor = next[next.length - 1];
         if (neighbor) {
           setActiveRel(neighbor.relPath);
-          api().fs.read(neighbor.relPath).then((c) => setContent(c ?? ""));
-          setDirty(false);
+          api()
+            .fs.read(neighbor.relPath)
+            .then((c) => {
+              if (activeRelRef.current !== neighbor.relPath) return;
+              contentRef.current = c ?? "";
+              setContent(c ?? "");
+              dirtyRef.current = false;
+              setDirty(false);
+            })
+            .catch(() => toast("Could not open the next note", "error"));
         } else {
           setActiveRel(null);
+          contentRef.current = "";
           setContent("");
+          dirtyRef.current = false;
           setDirty(false);
         }
       }
@@ -283,6 +354,12 @@ export default function App() {
       const { rewritten } = await api().fs.rename(oldRel, newRel);
       await refreshFiles();
       setTabs((prev) => prev.map((t) => (t.relPath === oldRel ? { ...t, relPath: newRel, name: newRel.split("/").pop() ?? newRel } : t)));
+      setFavorites((prev) => {
+        if (!prev.includes(oldRel)) return prev;
+        const next = prev.map((entry) => (entry === oldRel ? newRel : entry));
+        api().settings.set("favorites", next);
+        return next;
+      });
       if (activeRel === oldRel) setActiveRel(newRel);
       if (rewritten > 0) {
         toast(`Renamed and updated ${rewritten} link${rewritten > 1 ? "s" : ""}`);
@@ -328,35 +405,17 @@ export default function App() {
   }
 
   function openByTitle(target: string) {
-    const normalized = target.toLowerCase();
-    const hit = files.find((f) => !f.isDir && f.relPath.replace(/\.md$/i, "").toLowerCase() === normalized);
-    if (hit) {
-      openNote(hit.relPath);
-    } else {
-      const base = normalized.split("/").pop() ?? normalized;
-      const match = files.find((f) => !f.isDir && f.name.replace(/\.md$/i, "").toLowerCase() === base);
-      if (match) openNote(match.relPath);
-      else toast(`Note "${target}" not found — create it?`);
-    }
+    const hit = findNote(files, target);
+    if (hit) openNote(hit);
+    else toast(`No note named "${target}"`);
   }
 
   function onTaskToggle(offset: number, checked: boolean) {
-    if (offset < 0) return;
-    setContent((prev) => {
-      const lines = prev.split("\n");
-      let acc = 0;
-      for (let i = 0; i < lines.length; i++) {
-        const start = acc;
-        acc += lines[i].length + 1;
-        if (offset >= start && offset < acc) {
-          lines[i] = lines[i].replace(/^\s*-\s+\[[ xX]\]/, (m) =>
-            m.replace(/\[[ xX]\]/, checked ? "[x]" : "[ ]"),
-          );
-          break;
-        }
-      }
-      return lines.join("\n");
-    });
+    const rel = activeRelRef.current;
+    if (!rel) return;
+    const next = applyTaskToggle(contentRef.current, offset, checked);
+    if (next === contentRef.current) return;
+    handleChange(rel, next);
   }
 
   function outlineJump(offset: number) {
@@ -377,18 +436,23 @@ export default function App() {
       { id: "toggle-sidebar", title: "Toggle sidebar", category: "View", hint: "Ctrl+Shift+S", run: () => setShowSidebar((s) => !s) },
       { id: "toggle-panel", title: "Toggle panel", category: "View", hint: "Ctrl+Shift+E", run: () => setShowRight((s) => !s) },
       { id: "toggle-theme", title: "Toggle theme", category: "Appearance", hint: "Ctrl+Shift+L", run: () => toggleTheme() },
-      { id: "close-vault", title: "Close vault", category: "Vault", run: () => api().vault.close().then(() => setVault(null)) },
+      { id: "close-vault", title: "Close vault", category: "Vault", run: () => closeVault() },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [vault, tabs, activeRel],
   );
 
-  // ---- global keyboard (PRD §11) ----
+  const actionsRef = useRef({ cycleMode, toggleTheme, newNote, openDaily, closeTab });
+  actionsRef.current = { cycleMode, toggleTheme, newNote, openDaily, closeTab };
+
+  // Keyboard shortcuts call the latest handlers. A listener closed over the
+  // first render would keep the first editor mode and theme forever.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
+      const actions = actionsRef.current;
       if (k === "p") {
         e.preventDefault();
         setPaletteMode("commands");
@@ -405,28 +469,28 @@ export default function App() {
         setShowRight((s) => !s);
       } else if (e.shiftKey && k === "l") {
         e.preventDefault();
-        toggleTheme();
+        actions.toggleTheme();
       } else if (k === "e") {
         e.preventDefault();
-        cycleMode();
+        actions.cycleMode();
       } else if (k === "s") {
         e.preventDefault();
         editorRef.current?.saveNow();
       } else if (k === "n") {
         e.preventDefault();
-        newNote();
+        actions.newNote();
       } else if (k === "j") {
         e.preventDefault();
-        openDaily();
+        actions.openDaily();
       } else if (k === "w") {
         e.preventDefault();
-        if (activeRel) closeTab(activeRel);
+        const rel = activeRelRef.current;
+        if (rel) actions.closeTab(rel);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRel, vault]);
+  }, []);
 
   const activeTab = tabs.find((t) => t.relPath === activeRel);
   const activeMode = activeTab?.mode ?? "source";
@@ -473,7 +537,7 @@ export default function App() {
                   onToggleFavorite={toggleFavorite}
                   onReveal={reveal}
                   onToggleTheme={toggleTheme}
-                  onCloseVault={() => api().vault.close().then(() => setVault(null))}
+                  onCloseVault={closeVault}
                 />
               </aside>
             )}
@@ -507,7 +571,8 @@ export default function App() {
                     <span className="truncate">{t.name}</span>
                     {t.dirty && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-locus-warning" />}
                     <button
-                      className="ml-0.5 hidden text-locus-ink-muted hover:text-locus-danger group-hover:inline"
+                      className="ml-0.5 hidden text-locus-ink-muted hover:text-locus-danger group-hover:inline group-focus-within:inline"
+                      aria-label="Close tab"
                       onClick={(e) => {
                         e.stopPropagation();
                         closeTab(t.relPath);
