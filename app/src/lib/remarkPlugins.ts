@@ -1,6 +1,5 @@
 // Remark plugins (PRD §6.2, FR-04 wikilinks, FR-23 callouts).
-// Operate on the mdast tree so source positions of other nodes stay valid
-// (needed for task-list toggling and outline scroll in the editor).
+// Operate on the mdast tree so source positions of other nodes stay valid.
 
 type MdNode = {
   type: string;
@@ -89,33 +88,74 @@ function processCallouts(parent: MdNode): void {
 }
 
 function transformBlockquote(blockquote: MdNode): MdNode[] {
-  const children = blockquote.children ?? [];
-  const first = children.find((c) => c.type === "paragraph");
-  const markerText = paragraphMarker(first);
-  if (!markerText) {
+  const split = splitCallout(blockquote);
+  if (!split) {
     processCallouts(blockquote);
     return [blockquote];
   }
-  const conf = CALLOUT_TYPES[markerText.type.toLowerCase()] ?? CALLOUT_TYPES.note;
+  const conf = CALLOUT_TYPES[split.type.toLowerCase()] ?? CALLOUT_TYPES.note;
   const open = {
     type: "html",
-    value: `<div class="locus-callout locus-callout-${conf.css}"><div class="locus-callout-title">${conf.label}${markerText.title ? ` — ${escapeHtml(markerText.title)}` : ""}</div>`,
+    value: `<div class="locus-callout locus-callout-${conf.css}"><div class="locus-callout-title">${conf.label}`,
   };
+  const title: MdNode[] = [];
+  if (split.title.length > 0) {
+    title.push({ type: "html", value: " — " }, ...split.title);
+  }
+  const closeTitle = { type: "html", value: "</div>" };
   const close = { type: "html", value: "</div>" };
-  const body = children.filter((c) => c !== first);
-  processCallouts({ ...blockquote, children: body });
-  return [open, ...body, close];
+  const body = { type: "root", children: split.body };
+  processCallouts(body);
+  return [open, ...title, closeTitle, ...(body.children ?? []), close];
 }
 
-function paragraphMarker(para?: MdNode): { type: string; title: string } | null {
-  if (!para) return null;
-  const text = (para.children ?? [])
-    .filter((c) => c.type === "text")
-    .map((c) => String(c.value ?? ""))
-    .join("");
-  const m = text.match(/^\[!([a-zA-Z-]+)\]\s*(.*)$/);
-  if (!m) return null;
-  return { type: m[1], title: m[2].trim() };
+// The marker is only the first line. Later lines in the same paragraph are the body,
+// and inline nodes on the title line (a wikilink, for example) stay in the title.
+function splitCallout(blockquote: MdNode): { type: string; title: MdNode[]; body: MdNode[] } | null {
+  const blocks = blockquote.children ?? [];
+  const first = blocks[0];
+  if (!first || first.type !== "paragraph") return null;
+  const inline = first.children ?? [];
+  const head = inline[0];
+  if (!head || head.type !== "text" || typeof head.value !== "string") return null;
+  const newline = head.value.indexOf("\n");
+  const firstLine = newline >= 0 ? head.value.slice(0, newline) : head.value;
+  const marker = firstLine.match(/^\[!([a-zA-Z-]+)\][ \t]*(.*)$/);
+  if (!marker) return null;
+
+  const title: MdNode[] = [];
+  if (marker[2]) title.push({ type: "text", value: marker[2] });
+  const bodyInline: MdNode[] = [];
+
+  if (newline >= 0) {
+    const after = head.value.slice(newline + 1);
+    if (after) bodyInline.push({ type: "text", value: after });
+    bodyInline.push(...inline.slice(1));
+  } else {
+    let consumedTitle = true;
+    for (let i = 1; i < inline.length; i++) {
+      const child = inline[i];
+      if (consumedTitle && child.type === "text" && typeof child.value === "string" && child.value.includes("\n")) {
+        const splitAt = child.value.indexOf("\n");
+        const before = child.value.slice(0, splitAt);
+        const after = child.value.slice(splitAt + 1);
+        if (before) title.push({ type: "text", value: before });
+        if (after) bodyInline.push({ type: "text", value: after });
+        bodyInline.push(...inline.slice(i + 1));
+        consumedTitle = false;
+        break;
+      }
+      if (consumedTitle) title.push(child);
+    }
+  }
+
+  const body: MdNode[] = [];
+  const hasBodyInline = bodyInline.some(
+    (node) => node.type !== "text" || String(node.value ?? "").trim() !== "",
+  );
+  if (hasBodyInline) body.push({ type: "paragraph", children: bodyInline });
+  body.push(...blocks.slice(1));
+  return { type: marker[1], title, body };
 }
 
 export function remarkWikilinks() {

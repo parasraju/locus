@@ -138,7 +138,7 @@ export function VaultGate({ onOpenVault }: VaultGateProps) {
                     {p}
                   </button>
                   <button
-                    className="hidden text-locus-ink-muted hover:text-locus-danger group-hover:inline"
+                    className="hidden text-locus-ink-muted hover:text-locus-danger group-hover:inline group-focus-within:inline"
                     onClick={() => removeRecent(p)}
                     title="Forget this vault (files are untouched)"
                   >

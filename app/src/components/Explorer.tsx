@@ -199,14 +199,15 @@ export function Explorer(props: ExplorerProps) {
             </span>
           )}
           <button
-            className={`hidden shrink-0 text-locus-ink-muted group-hover:inline ${isFav ? "!inline text-locus-warning" : ""}`}
+            className={`hidden shrink-0 text-locus-ink-muted group-hover:inline group-focus-within:inline ${isFav ? "!inline text-locus-warning" : ""}`}
             onClick={() => props.onToggleFavorite(node.relPath)}
             title={isFav ? "Remove favorite" : "Favorite"}
           >
             <Star size={13} fill={isFav ? "currentColor" : "none"} />
           </button>
           <button
-            className="hidden shrink-0 text-locus-ink-muted group-hover:inline"
+            className="hidden shrink-0 text-locus-ink-muted group-hover:inline group-focus-within:inline"
+            aria-label="Note actions"
             onClick={(e) => {
               e.stopPropagation();
               setMenuFor(menuFor === node.relPath ? null : node.relPath);

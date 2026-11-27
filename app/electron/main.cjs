@@ -14,6 +14,7 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const chokidar = require("chokidar");
 const { moveToTrash } = require("./trash.cjs");
+const { titleOf } = require("./noteTitle.cjs");
 
 const IS_DEV = Boolean(process.env.VITE_DEV_SERVER_URL);
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || "http://localhost:5173";
@@ -171,17 +172,6 @@ async function refreshIndex() {
   cachedEntries = await walkVault(activeVault);
   contentCache = new Map();
   contentCacheOrder = [];
-}
-
-function titleOf(content, name) {
-  const fm = content.match(/^---\n([\s\S]*?)\n---\n/);
-  if (fm) {
-    const t = fm[1].match(/^title:\s*(.+)$/m);
-    if (t) return t[1].trim().replace(/^['"]|['"]$/g, "");
-  }
-  const h1 = content.match(/^#\s+(.+)$/m);
-  if (h1) return h1[1].trim();
-  return name.replace(/\.md$/i, "");
 }
 
 // LRU content cache helpers
