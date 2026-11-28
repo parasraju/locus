@@ -573,3 +573,5 @@ process.on("uncaughtException", (err) => {
   console.error("[locus] uncaught", err);
   app.exit(1);
 });
+
+module.exports = { walkVault };
