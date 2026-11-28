@@ -120,8 +120,8 @@ function safeResolve(relPath) {
   return candidate;
 }
 
-function isIgnored(entry) {
-  return entry.name.startsWith(".") && IGNORED_DIRS.has(entry.name);
+function isIgnored(name) {
+  return IGNORED_DIRS.has(name);
 }
 
 async function walkVault(root) {
@@ -141,7 +141,7 @@ async function walkVault(root) {
       return a.name.localeCompare(b.name);
     });
     for (const entry of entries) {
-      if (isIgnored(entry)) continue;
+      if (isIgnored(entry.name)) continue;
       const full = path.join(dir, entry.name);
       const relPath = path.relative(root, full).split(path.sep).join("/");
       if (entry.isDirectory()) {
@@ -430,7 +430,7 @@ function startWatcher() {
       ignored: (p) => {
         const rel = path.relative(activeVault, p);
         const parts = rel.split(path.sep);
-        return parts.some((part) => IGNORED_DIRS.has(part));
+        return parts.some((part) => isIgnored(part));
       },
       ignoreInitial: true,
       depth: 24,
